@@ -1,0 +1,79 @@
+1. Escopo do Projeto
+Para garantir que o projeto seja viável dentro do tempo do TCC, precisamos delimitar as fronteiras da aplicação.
+
+✅ Dentro do Escopo (O que será entregue):
+
+Desenvolvimento de um Backend (Python/FastAPI) para agregar dados e servir via WebSocket.
+
+Desenvolvimento de um Frontend (React + D3.js/Three.js) focado em visualização de dados.
+
+Módulo de simulação local para geração de tráfego sintético contínuo.
+
+Módulo de integração com no máximo 3 APIs públicas gratuitas (ex: AbuseIPDB, Shodan, VirusTotal) para mesclar eventos reais com os simulados.
+
+Módulo de conversão local de IP para Coordenadas Geográficas (Lat/Long) usando a base gratuita GeoLite2 (MaxMind).
+
+Visualização de métricas básicas em tempo real (painéis estáticos de Top 5 e listagem de eventos).
+
+❌ Fora do Escopo (O que NÃO será feito - fundamental para a banca não cobrar):
+
+Armazenamento Histórico Profundo: O sistema não terá um banco de dados robusto para guardar meses de ataques (Big Data/Data Lake). O foco é o tempo real, os dados podem ser descartados da memória após algumas horas.
+
+Honeypots Próprios: O projeto consumirá APIs de terceiros e simulações, não envolverá a criação ou hospedagem de sensores reais (honeypots) para capturar ataques inéditos na internet.
+
+Ação de Bloqueio (IPS/Firewall): O sistema é estritamente passivo (visualizador). Ele não se conecta a roteadores para bloquear os IPs maliciosos.
+
+Gestão de Usuários (Autenticação/Autorização): Como é um dashboard de apresentação, não haverá sistema complexo de login, recuperação de senha ou níveis de acesso. A tela será pública ou protegida por uma senha simples.
+
+2. Fluxo de Desenvolvimento (Pipeline / Sprints)
+Esta é a trilha passo a passo de como você vai construir o projeto, ideal para colocar no seu cronograma do TCC.
+
+Fase 1: Fundação e Setup (Semanas 1 e 2)
+Passo 1: Configuração do repositório (Git/GitHub) e criação da estrutura de pastas (monorepo ou repositórios separados para Front e Back).
+
+Passo 2: Setup do ambiente Python, instalação do FastAPI e da biblioteca de WebSocket (websockets ou socket.io).
+
+Passo 3: Setup do ambiente React (Vite é recomendado pela velocidade), instalação do D3.js ou Three.js e bibliotecas de componentes (Tailwind, Material UI, etc.).
+
+Passo 4: Download do banco de dados GeoLite2 (formato .mmdb) e criação de um script de teste em Python para garantir que IPs viram coordenadas.
+
+Fase 2: O Motor de Dados - Backend (Semanas 3 e 4)
+Passo 1: Criação do Simulador Base: Um script Python que gera um JSON aleatório com "IP Origem, IP Destino, Tipo de Ataque" a cada X segundos.
+
+Passo 2: Integração do Simulador com a base GeoLite2 para adicionar Lat/Long ao JSON.
+
+Passo 3: Criação dos "Workers" de APIs Externas: Scripts que fazem requisições para Shodan/AbuseIPDB.
+
+Passo 4: Criação do endpoint WebSocket no FastAPI que consolida as fontes (Simulador + APIs Externas) e faz o broadcast contínuo desse fluxo de JSONs.
+
+Fase 3: O Palco - Frontend Básico (Semanas 5 e 6)
+Passo 1: Renderização do mapa-múndi estático. Se for 2D (D3.js), converter um arquivo GeoJSON em um mapa SVG desenhado na tela. Se for 3D (Three.js), criar a esfera e aplicar a textura do mapa escuro.
+
+Passo 2: Conectar o React ao WebSocket do backend e dar um console.log nos dados chegando em tempo real.
+
+Passo 3: Criar a estrutura estática do Layout (Sidebar direita para o Feed, Header para filtros, e os Cards do rodapé).
+
+Fase 4: Vida e Animação - Integração (Semanas 7 e 8)
+Passo 1: Transformar os dados do WebSocket em animações. Pegar as coordenadas do JSON e desenhar os arcos/projéteis no mapa.
+
+Passo 2: Associar cores aos tipos de ataque (ex: payload vindo do WebSocket type: 'ddos' pinta a linha de vermelho).
+
+Passo 3: Fazer o Feed Lateral atualizar adicionando o novo evento no topo da lista e removendo os mais antigos (para não travar o navegador).
+
+Passo 4: Fazer os gráficos do rodapé reagirem aos dados do WebSocket (atualizando contadores e Top 5).
+
+Fase 5: Refinamento e Defesa (Semanas 9 e 10)
+Passo 1: Testes de Performance (Stress Test). Acelerar o simulador para enviar 50 ataques por segundo e verificar se a renderização do frontend aguenta (se não, implementar limites de exibição/debounce no React).
+
+Passo 2: Implementar os Filtros no frontend (ex: ignorar pacotes WebSocket de tipos não selecionados).
+
+Passo 3: Implementar o Modal de detalhes ao clicar em um evento.
+
+Passo 4: Ajustes visuais finais (sombras, brilho nos projéteis - glow effect, refinamento do CSS).
+
+Fase 6: Fechamento (Semanas Finais)
+Deploy da aplicação (ex: Backend no Render ou Railway, Frontend na Vercel ou Netlify).
+
+Congelamento de código (Code Freeze).
+
+Finalização da escrita da monografia, gerando os diagramas de arquitetura com base no que foi efetivamente construído.
