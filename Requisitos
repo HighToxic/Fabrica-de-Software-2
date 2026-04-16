@@ -1,0 +1,31 @@
+1. Requisitos Funcionais (RF)
+O que o sistema deve fazer.
+
+RF01 - Visualização Geográfica: O sistema deve exibir um mapa-múndi interativo como plano de fundo principal.
+
+RF02 - Representação de Ataques: O sistema deve renderizar animações visuais (projéteis/arcos) conectando o país de origem ao país de destino do ataque.
+
+RF03 - Categorização Visual: O sistema deve utilizar diferentes cores para representar visualmente os tipos de ataque (ex: Vermelho para DDoS, Amarelo para Malware, Azul para Phishing, etc.).
+
+RF04 - Feed em Tempo Real: O sistema deve possuir um painel lateral que exibe um log ou feed contínuo dos ataques à medida que acontecem.
+
+RF05 - Painel de Estatísticas: O sistema deve calcular e exibir métricas consolidadas (ex: "Top 5 Países Atacantes", "Top 5 Países Alvos", "Distribuição por Tipo de Ataque").
+
+RF06 - Filtros de Visualização: O usuário deve ser capaz de filtrar os ataques exibidos no mapa e no feed por categoria (ex: mostrar apenas ataques DDoS).
+
+RF07 - Detalhamento de Evento: O sistema deve permitir que o usuário clique em um evento específico (no mapa ou no feed) para abrir um modal/painel com informações detalhadas (IP, vulnerabilidade associada, ASN, porta, etc.).
+
+RF08 - Geração de Dados Simulados: O sistema deve possuir um gerador de tráfego simulado para garantir que a tela nunca fique vazia, operando em conjunto com os dados reais.
+
+2. Requisitos Não Funcionais (RNF)
+Como o sistema deve se comportar (qualidade, performance, tecnologias).
+
+RNF01 - Comunicação de Baixa Latência: A transmissão de dados entre o backend e o frontend deve ser feita de forma bidirecional e assíncrona utilizando WebSockets.
+
+RNF02 - Desempenho de Renderização: O frontend deve ser capaz de renderizar simultaneamente múltiplos eventos (ex: dezenas de animações simultâneas) sem causar travamentos no navegador (mínimo de 30 FPS).
+
+RNF03 - Stack Tecnológica Obrigatória: O backend deve ser desenvolvido em Python com FastAPI, e o frontend em React utilizando bibliotecas de visualização de dados (D3.js para 2D ou Three.js para 3D).
+
+RNF04 - Resiliência de APIs Externas: O backend deve tratar falhas ou limites de requisições (rate limits) das APIs gratuitas (AbuseIPDB, Shodan, VirusTotal) caindo graciosamente (fallback) para a base de dados simulada.
+
+RNF05 - Processamento Geográfico: A tradução de Endereço IP para Coordenadas Geográficas (Lat/Long) deve ocorrer no backend utilizando a base de dados local GeoLite2 (MaxMind) para evitar latência de rede adicional.
