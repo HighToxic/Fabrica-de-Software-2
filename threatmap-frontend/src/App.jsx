@@ -21,7 +21,7 @@ function App() {
 
     const connectWebSocket = () => {
       // Cria a conexão com o backend real
-      ws = new WebSocket('wss://threatmap-backend-ustt.onrender.com/ws/live');
+      ws = new WebSocket("wss://threatmap-backend-ustt.onrender.com/ws/live");
 
       ws.onopen = () => {
         console.log("✅ Conectado ao servidor!");
