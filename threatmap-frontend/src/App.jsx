@@ -16,17 +16,45 @@ function App() {
   const [attacks, setAttacks] = useState([]);
 
   useEffect(() => {
-    const ws = new WebSocket('wss://threatmap-backend-ustt.onrender.com/ws/live');
+    let ws;
+    let reconnectTimeout;
 
-    ws.onmessage = (event) => {
-      const newAttack = JSON.parse(event.data);
-      setAttacks((prev) => {
-        const updated = [newAttack, ...prev];
-        return updated.slice(0, 15); // Aumentamos para 15 ataques simultâneos na tela
-      });
+    const connectWebSocket = () => {
+      // Cria a conexão com o backend real
+      ws = new WebSocket('wss://threatmap-backend-ustt.onrender.com/ws/live');
+
+      ws.onopen = () => {
+        console.log("✅ Conectado ao servidor!");
+      };
+
+      ws.onmessage = (event) => {
+        const newAttack = JSON.parse(event.data);
+        setAttacks((prev) => {
+          const updated = [newAttack, ...prev];
+          return updated.slice(0, 15);
+        });
+      };
+
+      ws.onclose = () => {
+        console.log("⚠️ Conexão caiu. O Render deve estar acordando. Tentando reconectar em 5 segundos...");
+        // Tenta conectar de novo após 5 segundos
+        reconnectTimeout = setTimeout(connectWebSocket, 5000);
+      };
+
+      ws.onerror = (err) => {
+        console.error("❌ Erro no WebSocket. Fechando conexão para tentar novamente.");
+        ws.close(); // Força o onclose a rodar
+      };
     };
 
-    return () => ws.close();
+    // Inicia a primeira tentativa de conexão
+    connectWebSocket();
+
+    // Limpa a conexão se o usuário fechar a página
+    return () => {
+      if (ws) ws.close();
+      clearTimeout(reconnectTimeout);
+    };
   }, []);
 
   return (
