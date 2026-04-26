@@ -16,7 +16,7 @@ function App() {
   const [attacks, setAttacks] = useState([]);
 
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:8000/ws/live');
+    const ws = new WebSocket('https://threatmap-backend-ustt.onrender.com');
 
     ws.onmessage = (event) => {
       const newAttack = JSON.parse(event.data);
