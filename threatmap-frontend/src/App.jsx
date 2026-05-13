@@ -27,6 +27,8 @@ function App() {
       const wsUrl = isLocalhost 
         ? 'ws://localhost:8000/ws/live' 
         : 'wss://threatmap-backend-ustt.onrender.com/ws/live';
+      ws = new WebSocket(wsUrl);
+      
       ws.onopen = () => {
         console.log("✅ Conectado ao servidor!");
       };
