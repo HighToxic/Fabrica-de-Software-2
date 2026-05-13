@@ -21,8 +21,12 @@ function App() {
 
     const connectWebSocket = () => {
       // Cria a conexão com o backend real
-      ws = new WebSocket("wss://threatmap-backend-ustt.onrender.com/ws/live");
-
+      // Se estamos rodando localmente (npm run dev), usa o localhost.
+      // Se estiver na Vercel, usa a URL de produção do Render.
+      const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+      const wsUrl = isLocalhost 
+        ? 'ws://localhost:8000/ws/live' 
+        : 'wss://threatmap-backend-ustt.onrender.com/ws/live';
       ws.onopen = () => {
         console.log("✅ Conectado ao servidor!");
       };
