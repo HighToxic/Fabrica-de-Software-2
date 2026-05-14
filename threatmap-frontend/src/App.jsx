@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import AnimatedAttackLine from "./AnimatedAttackLine";
 import { ComposableMap, Geographies, Geography, Line } from 'react-simple-maps';
 
 // Mapa mundi
@@ -105,16 +106,11 @@ function App() {
           
           {/* Linhas animadas das ameaças */}
           {attacks.map((attack) => (
-            <Line
-              key={attack.id}
-              from={[attack.source.lng, attack.source.lat]}
-              to={[attack.dest.lng, attack.dest.lat]}
-              stroke={attackColors[attack.type] || "#ffffff"}
-              strokeWidth={3}
-              strokeLinecap="round"
-              style={{ opacity: 0.8 }}
-            />
-          ))}
+      <AnimatedAttackLine
+       key={attack.id} 
+       attack={attack} 
+       color={attackColors[attack.type]}/>
+    ))}
         </ComposableMap>
       </div>
 
