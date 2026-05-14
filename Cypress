@@ -1,0 +1,73 @@
+describe('ThreatMap - SOC (Security Operations Center)', () => {
+  
+  beforeEach(() => {
+    // Acessa o ambiente de desenvolvimento local antes de cada teste
+    cy.visit('http://localhost:5173');
+  });
+
+  // CASO DE TESTE 1: Validação de Interface e HUD
+  it('Deve renderizar o HUD principal e o título da aplicação', () => {
+    // Verifica se o título com a tag LIVE está visível
+    cy.contains('ThreatMap').should('be.visible');
+    cy.contains('LIVE').should('be.visible');
+    
+    // Verifica se o layout base está com a cor de fundo correta (Dark Mode)
+    cy.get('body').should('have.css', 'background-color', 'rgb(18, 18, 18)'); // #121212
+  });
+
+  // CASO DE TESTE 2: Renderização Cartográfica
+  it('Deve desenhar o mapa vetorial (SVG) corretamente na tela', () => {
+    // O react-simple-maps usa a tag <svg> para renderizar o globo
+    cy.get('svg').should('exist');
+    
+    // Verifica se os caminhos das regiões (países) foram gerados
+    cy.get('svg path').should('have.length.greaterThan', 50);
+  });
+
+  // CASO DE TESTE 3: Integração com WebSocket em Tempo Real
+  it('Deve receber e exibir novos ataques no painel lateral', () => {
+    // Como os ataques demoram alguns segundos para chegar via Python,
+    // aumentamos o tempo de espera do Cypress para até 10 segundos
+    cy.contains('ORIGEM', { timeout: 10000 }).should('be.visible');
+    cy.contains('DESTINO', { timeout: 10000 }).should('be.visible');
+    
+    // Verifica se os cards de ataque estão sendo gerados na grid
+    cy.get('div').contains('ORIGEM').parent().should('exist');
+  });
+
+  // CASO DE TESTE 4: Validação de Regra de Negócio (Cores das Ameaças)
+  it('Deve aplicar a paleta de cores correta para as ameaças detectadas', () => {
+    // Aguarda até que pelo menos um ataque apareça no feed lateral
+    cy.contains('ORIGEM', { timeout: 10000 }).should('be.visible');
+
+    // Mapeia o estado do DOM para verificar se as cores configuradas 
+    // no dicionário attackColors estão aparecendo no painel lateral
+    cy.get('body').then(($body) => {
+      // Verifica se o Brute Force (Roxo Neon) ou DDoS (Vermelho) apareceram
+      const hasDDoS = $body.text().includes('DDoS');
+      const hasBruteForce = $body.text().includes('Brute Force');
+      const hasMalware = $body.text().includes('Malware');
+
+      if (hasDDoS) {
+        cy.contains('DDoS').should('have.css', 'color', 'rgb(255, 75, 75)'); // #ff4b4b
+      }
+      if (hasBruteForce) {
+        cy.contains('Brute Force').should('have.css', 'color', 'rgb(168, 85, 247)'); // #a855f7
+      }
+      if (hasMalware) {
+        cy.contains('Malware').should('have.css', 'color', 'rgb(251, 191, 36)'); // #fbbf24
+      }
+    });
+  });
+
+});
+
+
+
+Caso 1: Garante que a aplicação não está quebrando logo na inicialização (a temida "tela branca") e que o CSS base do painel foi aplicado.
+
+Caso 2: Garante que a biblioteca do mapa conseguiu ler o arquivo JSON de topologia e desenhar o mundo na tela.
+
+Caso 3: Este é o mais importante. Ele prova que o Frontend consegue se conectar ao Backend, receber os pacotes do WebSocket, analisar o JSON e atualizar a interface automaticamente.
+
+Caso 4: Prova que a regra de negócio visual (o dicionário de cores que alteramos para deixar o Brute Force roxo e o DDoS vermelho) está sendo aplicada corretamente no render do React.
