@@ -146,11 +146,11 @@ function App() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', color: '#ccc', fontFamily: 'monospace' }}>
                 <div style={{ backgroundColor: '#1e1e1e', padding: '6px', borderRadius: '4px' }}>
                   <span style={{ color: '#888', fontSize: '10px', display: 'block', marginBottom: '2px' }}>ORIGEM</span>
-                  {attack.source.lat.toFixed(2)}<br/>{attack.source.lng.toFixed(2)}
+                  <span style={{ fontSize: '11px', fontWeight: 'bold' }}>{attack.source.name}</span>
                 </div>
                 <div style={{ backgroundColor: '#1e1e1e', padding: '6px', borderRadius: '4px' }}>
                   <span style={{ color: '#888', fontSize: '10px', display: 'block', marginBottom: '2px' }}>DESTINO</span>
-                  {attack.dest.lat.toFixed(2)}<br/>{attack.dest.lng.toFixed(2)}
+                  <span style={{ fontSize: '11px', fontWeight: 'bold' }}>{attack.dest.name}</span>
                 </div>
               </div>
 
