@@ -9,7 +9,7 @@ const attackColors = {
   "DDoS": "#ff4b4b",       // Vermelho intenso
   "Malware": "#fbbf24",    // Amarelo
   "Phishing": "#60a5fa",   // Azul claro
-  "Brute Force": "#f97316" // Laranja
+  "Brute Force": "#a855f7" // Roxo neon
 };
 
 function App() {
