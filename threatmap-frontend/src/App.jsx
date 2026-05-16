@@ -1,162 +1,338 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from "react";
 import AnimatedAttackLine from "./AnimatedAttackLine";
-import { ComposableMap, Geographies, Geography, Line } from 'react-simple-maps';
+import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 
-// Mapa mundi
 const geoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
-// 🎨 Dicionário de cores baseado nas regras de negócio do seu TCC
-const attackColors = {
-  "DDoS": "#ff4b4b",       // Vermelho intenso
-  "Malware": "#fbbf24",    // Amarelo
-  "Phishing": "#60a5fa",   // Azul claro
-  "Brute Force": "#a855f7" // Roxo neon
+const ATTACK_COLORS = {
+  "DDoS":        { main: "#ff4b4b", bg: "rgba(255,75,75,0.12)",   glow: "rgba(255,75,75,0.35)"   },
+  "Malware":     { main: "#fbbf24", bg: "rgba(251,191,36,0.12)",  glow: "rgba(251,191,36,0.35)"  },
+  "Phishing":    { main: "#60a5fa", bg: "rgba(96,165,250,0.12)",  glow: "rgba(96,165,250,0.35)"  },
+  "Brute Force": { main: "#a855f7", bg: "rgba(168,85,247,0.12)",  glow: "rgba(168,85,247,0.35)"  },
 };
 
-function App() {
+const ATTACK_ICONS = {
+  "DDoS":        "⚡",
+  "Malware":     "☣",
+  "Phishing":    "🎣",
+  "Brute Force": "🔓",
+};
+
+function StatBox({ label, value, color, icon }) {
+  return (
+    <div style={{
+      flex: 1,
+      padding: "12px 16px",
+      borderRight: "1px solid #1e2533",
+      display: "flex",
+      flexDirection: "column",
+      gap: 2,
+    }}>
+      <span style={{ fontSize: 10, color: "#4b5563", textTransform: "uppercase", letterSpacing: "0.1em", fontFamily: "monospace" }}>
+        {icon} {label}
+      </span>
+      <span style={{ fontSize: 22, fontWeight: 700, color: color || "#e2e8f0", fontFamily: "monospace", lineHeight: 1.2 }}>
+        {typeof value === "number" ? value.toLocaleString("pt-BR") : value}
+      </span>
+    </div>
+  );
+}
+
+export default function App() {
   const [attacks, setAttacks] = useState([]);
+  const [connected, setConnected] = useState(false);
+  const [stats, setStats] = useState({ total: 0, ddos: 0, malware: 0, phishing: 0, brute: 0, aps: 0 });
+  const apsBuffer = useRef(0);
+  const activeNodes = useRef(new Set());
 
   useEffect(() => {
     let ws;
     let reconnectTimeout;
 
-    const connectWebSocket = () => {
-      // Cria a conexão com o backend real
-      // Se estamos rodando localmente (npm run dev), usa o localhost.
-      // Se estiver na Vercel, usa a URL de produção do Render.
-      const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-      const wsUrl = isLocalhost 
-        ? 'ws://localhost:8000/ws/live' 
-        : 'wss://threatmap-backend-ustt.onrender.com/ws/live';
-      ws = new WebSocket(wsUrl);
-      
-      ws.onopen = () => {
-        console.log("✅ Conectado ao servidor!");
-      };
+    const connect = () => {
+      const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+      const url = isLocal
+        ? "ws://localhost:8000/ws/live"
+        : "wss://threatmap-backend-ustt.onrender.com/ws/live";
 
-      ws.onmessage = (event) => {
-        const newAttack = JSON.parse(event.data);
-        setAttacks((prev) => {
-          const updated = [newAttack, ...prev];
-          return updated.slice(0, 15);
-        });
+      ws = new WebSocket(url);
+
+      ws.onopen = () => setConnected(true);
+
+      ws.onmessage = (e) => {
+        const attack = JSON.parse(e.data);
+
+        // Marca nós ativos para os marcadores pulsantes
+        activeNodes.current.add(attack.source.name);
+        activeNodes.current.add(attack.dest.name);
+        setTimeout(() => activeNodes.current.delete(attack.source.name), 3000);
+        setTimeout(() => activeNodes.current.delete(attack.dest.name), 3000);
+
+        apsBuffer.current++;
+
+        setStats((prev) => ({
+          ...prev,
+          total:    prev.total + 1,
+          ddos:     prev.ddos    + (attack.type === "DDoS"        ? 1 : 0),
+          malware:  prev.malware + (attack.type === "Malware"     ? 1 : 0),
+          phishing: prev.phishing + (attack.type === "Phishing"   ? 1 : 0),
+          brute:    prev.brute   + (attack.type === "Brute Force" ? 1 : 0),
+        }));
+
+        setAttacks((prev) => [attack, ...prev].slice(0, 20));
       };
 
       ws.onclose = () => {
-        console.log("⚠️ Conexão caiu. O Render deve estar acordando. Tentando reconectar em 5 segundos...");
-        // Tenta conectar de novo após 5 segundos
-        reconnectTimeout = setTimeout(connectWebSocket, 5000);
+        setConnected(false);
+        reconnectTimeout = setTimeout(connect, 5000);
       };
 
-      ws.onerror = (err) => {
-        console.error("❌ Erro no WebSocket. Fechando conexão para tentar novamente.");
-        ws.close(); // Força o onclose a rodar
-      };
+      ws.onerror = () => ws.close();
     };
 
-    // Inicia a primeira tentativa de conexão
-    connectWebSocket();
+    connect();
 
-    // Limpa a conexão se o usuário fechar a página
+    // Atualiza ataques/segundo a cada segundo
+    const apsInterval = setInterval(() => {
+      setStats((prev) => ({ ...prev, aps: apsBuffer.current }));
+      apsBuffer.current = 0;
+    }, 1000);
+
     return () => {
       if (ws) ws.close();
       clearTimeout(reconnectTimeout);
+      clearInterval(apsInterval);
     };
   }, []);
 
   return (
-    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#121212', color: '#e5e5e5', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      
-      {/* 🌍 Área do Mapa (75%) */}
-      <div style={{ width: '75%', position: 'relative', overflow: 'hidden' }}>
-        
-        {/* Header HUD (Estilo Painel) */}
-        <div style={{ position: 'absolute', top: 20, left: 20, zIndex: 10, backgroundColor: 'rgba(0,0,0,0.6)', padding: '15px 20px', borderRadius: '8px', border: '1px solid #333', backdropFilter: 'blur(4px)' }}>
-          <h2 style={{ margin: 0, color: '#fff', fontSize: '24px', letterSpacing: '1px' }}>
-            🌐 ThreatMap <span style={{ color: '#ff4b4b' }}>LIVE</span>
-          </h2>
-          <div style={{ fontSize: '12px', color: '#aaa', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ color: '#4ade80', fontSize: '14px' }}>●</span> WebSocket Conectado
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
+      height: "100vh",
+      backgroundColor: "#080c12",
+      color: "#e2e8f0",
+      fontFamily: "'IBM Plex Mono', 'Courier New', monospace",
+      overflow: "hidden",
+    }}>
+
+      {/* ═══ TOP HEADER ═══ */}
+      <header style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "10px 24px",
+        backgroundColor: "#0a0f18",
+        borderBottom: "1px solid #1e2533",
+        flexShrink: 0,
+        zIndex: 20,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 18, letterSpacing: "0.12em", fontWeight: 700, color: "#e2e8f0" }}>
+            THREAT<span style={{ color: "#ff4b4b" }}>MAP</span>
+          </span>
+          <span style={{
+            fontSize: 10,
+            color: connected ? "#22c55e" : "#ef4444",
+            border: `1px solid ${connected ? "#166534" : "#7f1d1d"}`,
+            backgroundColor: connected ? "#052e16" : "#1c0608",
+            padding: "2px 8px",
+            borderRadius: 3,
+            letterSpacing: "0.1em",
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+          }}>
+            <span style={{
+              display: "inline-block",
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              backgroundColor: connected ? "#22c55e" : "#ef4444",
+              boxShadow: connected ? "0 0 6px #22c55e" : "none",
+              animation: connected ? "pulse-dot 1.5s infinite" : "none",
+            }} />
+            {connected ? "LIVE" : "RECONECTANDO..."}
+          </span>
+        </div>
+
+        {/* Stats bar no header */}
+        <div style={{ display: "flex", gap: 24, fontSize: 12, color: "#6b7280" }}>
+          <span>TOTAL <strong style={{ color: "#e2e8f0" }}>{stats.total.toLocaleString("pt-BR")}</strong></span>
+          <span style={{ color: "#1e2533" }}>|</span>
+          <span>APS <strong style={{ color: stats.aps > 2 ? "#ff4b4b" : "#fbbf24" }}>{stats.aps}</strong></span>
+          <span style={{ color: "#1e2533" }}>|</span>
+          <span style={{ color: ATTACK_COLORS["DDoS"].main }}>DDoS <strong>{stats.ddos}</strong></span>
+          <span style={{ color: ATTACK_COLORS["Malware"].main }}>Malware <strong>{stats.malware}</strong></span>
+          <span style={{ color: ATTACK_COLORS["Phishing"].main }}>Phishing <strong>{stats.phishing}</strong></span>
+          <span style={{ color: ATTACK_COLORS["Brute Force"].main }}>Brute Force <strong>{stats.brute}</strong></span>
+        </div>
+      </header>
+
+      {/* ═══ BODY: MAPA + SIDEBAR ═══ */}
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+
+        {/* ── MAPA ── */}
+        <div style={{ flex: 1, position: "relative", overflow: "hidden", background: "radial-gradient(ellipse at 50% 40%, #0d1520 0%, #080c12 70%)" }}>
+
+          {/* Grid overlay sutil */}
+          <div style={{
+            position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none",
+            backgroundImage: "linear-gradient(rgba(30,37,51,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(30,37,51,0.4) 1px, transparent 1px)",
+            backgroundSize: "40px 40px",
+          }} />
+
+          {/* Legenda de tipos */}
+          <div style={{
+            position: "absolute", bottom: 20, left: 20, zIndex: 10,
+            display: "flex", gap: 10, flexWrap: "wrap",
+            backgroundColor: "rgba(8,12,18,0.85)",
+            padding: "8px 14px", borderRadius: 6,
+            border: "1px solid #1e2533",
+            backdropFilter: "blur(8px)",
+          }}>
+            {Object.entries(ATTACK_COLORS).map(([type, c]) => (
+              <span key={type} style={{ fontSize: 11, color: c.main, display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", backgroundColor: c.main, boxShadow: `0 0 6px ${c.main}` }} />
+                {type}
+              </span>
+            ))}
           </div>
+
+          <ComposableMap
+            projection="geoMercator"
+            projectionConfig={{ scale: 140, center: [10, 15] }}
+            style={{ width: "100%", height: "100%", position: "relative", zIndex: 2 }}
+          >
+            <Geographies geography={geoUrl}>
+              {({ geographies }) =>
+                geographies.map((geo) => (
+                  <Geography
+                    key={geo.rsmKey}
+                    geography={geo}
+                    fill="#111827"
+                    stroke="#1e2533"
+                    strokeWidth={0.4}
+                    style={{
+                      default: { outline: "none" },
+                      hover:   { outline: "none", fill: "#1a2436" },
+                      pressed: { outline: "none" },
+                    }}
+                  />
+                ))
+              }
+            </Geographies>
+
+            {/* Linhas de ataque animadas */}
+            {attacks.map((attack) => (
+              <AnimatedAttackLine
+                key={attack.id}
+                attack={attack}
+                color={ATTACK_COLORS[attack.type]?.main || "#fff"}
+              />
+            ))}
+          </ComposableMap>
         </div>
 
-        {/* Legenda de Cores no rodapé do mapa */}
-        <div style={{ position: 'absolute', bottom: 20, left: 20, zIndex: 10, display: 'flex', gap: '15px', backgroundColor: 'rgba(0,0,0,0.6)', padding: '10px 15px', borderRadius: '8px', border: '1px solid #333', fontSize: '12px', fontWeight: 'bold', backdropFilter: 'blur(4px)' }}>
-          <span style={{ color: attackColors["DDoS"] }}>■ DDoS</span>
-          <span style={{ color: attackColors["Malware"] }}>■ Malware</span>
-          <span style={{ color: attackColors["Phishing"] }}>■ Phishing</span>
-          <span style={{ color: attackColors["Brute Force"] }}>■ Brute Force</span>
-        </div>
-
-        <ComposableMap projection="geoMercator" style={{ width: "100%", height: "100%" }}>
-          <Geographies geography={geoUrl}>
-            {({ geographies }) =>
-              geographies.map((geo) => (
-                <Geography 
-                  key={geo.rsmKey} 
-                  geography={geo} 
-                  fill="#262626" 
-                  stroke="#121212" 
-                  strokeWidth={0.5} 
-                  style={{ default: { outline: "none" }, hover: { outline: "none" }, pressed: { outline: "none" } }}
-                />
-              ))
-            }
-          </Geographies>
-          
-          {/* Linhas animadas das ameaças */}
-          {attacks.map((attack) => (
-      <AnimatedAttackLine
-       key={attack.id} 
-       attack={attack} 
-       color={attackColors[attack.type]}/>
-    ))}
-        </ComposableMap>
-      </div>
-
-      {/* 📊 Sidebar Lateral (Feed de Eventos - 25%) */}
-      <div style={{ width: '25%', backgroundColor: '#1a1a1a', borderLeft: '1px solid #333', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '20px', borderBottom: '1px solid #333', backgroundColor: '#121212' }}>
-          <h3 style={{ margin: 0, textTransform: 'uppercase', letterSpacing: '1px', fontSize: '16px', color: '#fff' }}>Feed de Eventos</h3>
-        </div>
-        
-        <div style={{ flex: 1, overflowY: 'auto', padding: '15px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {attacks.map(attack => (
-            // Card individual de cada ataque
-            <div key={attack.id} style={{ 
-              backgroundColor: '#262626', 
-              padding: '12px', 
-              borderRadius: '6px', 
-              fontSize: '13px', 
-              borderLeft: `4px solid ${attackColors[attack.type]}`, 
-              boxShadow: '0 4px 6px rgba(0,0,0,0.3)' 
+        {/* ── SIDEBAR ── */}
+        <aside style={{
+          width: 280,
+          backgroundColor: "#0a0f18",
+          borderLeft: "1px solid #1e2533",
+          display: "flex",
+          flexDirection: "column",
+          flexShrink: 0,
+        }}>
+          {/* Cabeçalho da sidebar */}
+          <div style={{
+            padding: "14px 16px",
+            borderBottom: "1px solid #1e2533",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}>
+            <span style={{ fontSize: 11, letterSpacing: "0.12em", color: "#6b7280", textTransform: "uppercase" }}>
+              Feed de Eventos
+            </span>
+            <span style={{
+              fontSize: 10, color: "#22c55e",
+              backgroundColor: "#052e16",
+              border: "1px solid #166534",
+              padding: "1px 6px", borderRadius: 2,
             }}>
-              
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <strong style={{ color: attackColors[attack.type], textTransform: 'uppercase', fontSize: '13px', letterSpacing: '0.5px' }}>
-                  {attack.type}
-                </strong>
-                <span style={{ color: '#666', fontSize: '11px', fontFamily: 'monospace' }}>ID:{attack.id}</span>
-              </div>
+              ● LIVE
+            </span>
+          </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', color: '#ccc', fontFamily: 'monospace' }}>
-                <div style={{ backgroundColor: '#1e1e1e', padding: '6px', borderRadius: '4px' }}>
-                  <span style={{ color: '#888', fontSize: '10px', display: 'block', marginBottom: '2px' }}>ORIGEM</span>
-                  <span style={{ fontSize: '11px', fontWeight: 'bold' }}>{attack.source.name}</span>
-                </div>
-                <div style={{ backgroundColor: '#1e1e1e', padding: '6px', borderRadius: '4px' }}>
-                  <span style={{ color: '#888', fontSize: '10px', display: 'block', marginBottom: '2px' }}>DESTINO</span>
-                  <span style={{ fontSize: '11px', fontWeight: 'bold' }}>{attack.dest.name}</span>
-                </div>
-              </div>
+          {/* Cards de ataque */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "10px 10px", display: "flex", flexDirection: "column", gap: 8 }}>
+            {attacks.map((attack, i) => {
+              const c = ATTACK_COLORS[attack.type] || ATTACK_COLORS["DDoS"];
+              const ts = new Date(attack.timestamp).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+              return (
+                <div
+                  key={attack.id}
+                  style={{
+                    backgroundColor: i === 0 ? c.bg : "rgba(255,255,255,0.02)",
+                    border: `1px solid ${i === 0 ? c.main + "55" : "#1e2533"}`,
+                    borderLeft: `3px solid ${c.main}`,
+                    borderRadius: 5,
+                    padding: "10px 12px",
+                    fontSize: 11,
+                    transition: "background 0.3s",
+                    boxShadow: i === 0 ? `0 0 12px ${c.glow}` : "none",
+                  }}
+                >
+                  {/* Header do card */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <span style={{
+                      color: c.main,
+                      fontWeight: 700,
+                      fontSize: 11,
+                      letterSpacing: "0.08em",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 5,
+                    }}>
+                      {ATTACK_ICONS[attack.type]} {attack.type.toUpperCase()}
+                    </span>
+                    <span style={{ color: "#374151", fontSize: 10 }}>{ts}</span>
+                  </div>
 
-            </div>
-          ))}
-        </div>
+                  {/* Origem → Destino */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ color: "#4b5563", fontSize: 10, width: 42, flexShrink: 0 }}>ORIGEM</span>
+                      <span style={{ color: "#9ca3af", fontSize: 11, fontFamily: "monospace" }}>{attack.source.name}</span>
+                    </div>
+                    <div style={{ paddingLeft: 48, color: "#374151", fontSize: 10 }}>▼</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ color: "#4b5563", fontSize: 10, width: 42, flexShrink: 0 }}>DESTINO</span>
+                      <span style={{ color: c.main, fontSize: 11, fontFamily: "monospace" }}>{attack.dest.name}</span>
+                    </div>
+                  </div>
+
+                  {/* ID do ataque */}
+                  <div style={{ marginTop: 8, color: "#374151", fontSize: 9, fontFamily: "monospace", borderTop: "1px solid #1e2533", paddingTop: 6 }}>
+                    ID: {attack.id}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </aside>
       </div>
 
+      {/* Animação CSS para o dot pulsante do status */}
+      <style>{`
+        @keyframes pulse-dot {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #080c12; }
+        ::-webkit-scrollbar-thumb { background: #1e2533; border-radius: 2px; }
+      `}</style>
     </div>
   );
 }
-
-export default App;
