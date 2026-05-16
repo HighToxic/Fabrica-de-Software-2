@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import AnimatedAttackLine from "./AnimatedAttackLine";
+import NodeMarker from "./NodeMarker";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 
 const geoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
@@ -42,8 +43,9 @@ export default function App() {
   const [attacks, setAttacks] = useState([]);
   const [connected, setConnected] = useState(false);
   const [stats, setStats] = useState({ total: 0, ddos: 0, malware: 0, phishing: 0, brute: 0, aps: 0 });
+  // activeMarkers: array de { key, location, color, role } — renderizado como NodeMarker no mapa
+  const [activeMarkers, setActiveMarkers] = useState([]);
   const apsBuffer = useRef(0);
-  const activeNodes = useRef(new Set());
 
   useEffect(() => {
     let ws;
@@ -61,12 +63,21 @@ export default function App() {
 
       ws.onmessage = (e) => {
         const attack = JSON.parse(e.data);
+        const color = ATTACK_COLORS[attack.type]?.main || "#fff";
+        const markerKey = attack.id;
 
-        // Marca nós ativos para os marcadores pulsantes
-        activeNodes.current.add(attack.source.name);
-        activeNodes.current.add(attack.dest.name);
-        setTimeout(() => activeNodes.current.delete(attack.source.name), 3000);
-        setTimeout(() => activeNodes.current.delete(attack.dest.name), 3000);
+        // Adiciona marcadores para origem e destino
+        setActiveMarkers((prev) =>
+          [...prev,
+            { key: `${markerKey}-src`, location: attack.source, color, role: "source" },
+            { key: `${markerKey}-dst`, location: attack.dest,   color, role: "dest"   },
+          ].slice(-40)
+        );
+
+        // Remove após a animação terminar (~4s)
+        setTimeout(() => {
+          setActiveMarkers((prev) => prev.filter((m) => !m.key.startsWith(markerKey)));
+        }, 4000);
 
         apsBuffer.current++;
 
@@ -223,7 +234,17 @@ export default function App() {
               }
             </Geographies>
 
-            {/* Linhas de ataque animadas */}
+            {/* Marcadores pulsantes nos nós ativos (abaixo das linhas) */}
+            {activeMarkers.map((m) => (
+              <NodeMarker
+                key={m.key}
+                location={m.location}
+                color={m.color}
+                role={m.role}
+              />
+            ))}
+
+            {/* Linhas de ataque animadas (acima dos marcadores) */}
             {attacks.map((attack) => (
               <AnimatedAttackLine
                 key={attack.id}
